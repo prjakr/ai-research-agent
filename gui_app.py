@@ -370,22 +370,38 @@ def run_mode(mode):
 
 @app.route("/api/debug-cloud")
 def debug_cloud():
-    import traceback
-    result = {"is_cloud": IS_CLOUD}
+    import traceback, os
+    result = {
+        "is_cloud": IS_CLOUD,
+        "token_prefix": os.environ.get("GITHUB_TOKEN","")[:8],
+        "gist_id": os.environ.get("GITHUB_GIST_ID",""),
+    }
     try:
-        st = get_storage()
-        result["has_storage"] = st is not None
-        if st:
-            cfg = st.read_config()
-            result["config_keys"] = list(cfg.keys())
-            result["links_count"] = len(cfg.get("links", []))
+        import requests as req
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('GITHUB_TOKEN','')}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        gist_id = os.environ.get("GITHUB_GIST_ID","")
+        # 直接 GitHub API を叩く
+        r = req.get(f"https://api.github.com/gists/{gist_id}", headers=headers, timeout=10)
+        result["gist_status"] = r.status_code
+        if r.status_code == 200:
+            files = list(r.json().get("files", {}).keys())
+            result["gist_files"] = files
             # 書き込みテスト
-            cfg.setdefault("_debug_writes", 0)
-            cfg["_debug_writes"] += 1
-            ok_write = st.write_config(cfg)
-            result["write_ok"] = ok_write
+            rw = req.patch(
+                f"https://api.github.com/gists/{gist_id}",
+                headers=headers,
+                json={"files": {"_test.json": {"content": "test"}}},
+                timeout=10,
+            )
+            result["write_status"] = rw.status_code
+        else:
+            result["gist_error"] = r.text[:200]
     except Exception as e:
-        result["error"] = traceback.format_exc()
+        result["error"] = traceback.format_exc()[-500:]
     return jsonify(result)
 
 # ─── launch ──────────────────────────────────────────────────────────
