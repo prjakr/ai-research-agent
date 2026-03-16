@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+data/
+config.json
+*.log
+*.db
+_restart_helper.bat
+startup_err.log
+startup_test.log
+.env
+
+.vercel

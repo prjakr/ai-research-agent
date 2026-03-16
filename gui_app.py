@@ -2,7 +2,7 @@
 情報リサーチエージェント WebGUI
 Flask + Bootstrap 5  /  port 8765
 """
-import io, json, socket, sqlite3, subprocess, sys, threading, webbrowser
+import io, json, socket, sqlite3, subprocess, sys, threading, uuid, webbrowser
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
@@ -23,7 +23,7 @@ BASE_DIR    = Path(__file__).parent
 CONFIG_PATH = BASE_DIR / "config.json"
 app = Flask(__name__)
 
-VERSION = "1.5.0"
+VERSION = "1.7.0"
 
 # ─── local IP ────────────────────────────────────────────────────────
 def get_local_ip():
@@ -84,6 +84,10 @@ def migrate_config():
         changed = True
     if "links" not in cfg:
         cfg["links"] = []; changed = True
+    for lk in cfg.get("links", []):
+        if "group_id" not in lk: lk["group_id"] = ""; changed = True
+    if "link_groups" not in cfg:
+        cfg["link_groups"] = []; changed = True
     # デフォルトフィードを追加（フィードが1件もない場合）
     rss = cfg.setdefault("rss_feeds", {})
     fl  = rss.setdefault("feeds", [])
@@ -233,6 +237,35 @@ def reorder_links():
     save_cfg(cfg); return ok()
 
 # ══════════════════════════════════════════════════════════════════════
+#  Link Groups
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/api/link-groups", methods=["GET", "POST"])
+def link_groups_api():
+    cfg = load_cfg()
+    groups = cfg.setdefault("link_groups", [])
+    if request.method == "POST":
+        d = request.json
+        gid = "g" + uuid.uuid4().hex[:8]
+        groups.append({"id": gid, "name": d.get("name", "グループ"),
+                        "color": d.get("color", "#6366f1")})
+        save_cfg(cfg); return ok({"id": gid})
+    return jsonify(groups)
+
+@app.route("/api/link-groups/<gid>", methods=["PUT", "DELETE"])
+def link_group_api(gid):
+    cfg = load_cfg()
+    groups = cfg.setdefault("link_groups", [])
+    idx = next((i for i, g in enumerate(groups) if g["id"] == gid), None)
+    if idx is None: return err("not found", 404)
+    if request.method == "DELETE":
+        groups.pop(idx)
+        for lk in cfg.get("links", []):
+            if lk.get("group_id") == gid: lk["group_id"] = ""
+        save_cfg(cfg); return ok()
+    groups[idx].update({k: v for k, v in request.json.items() if k in ("name", "color")})
+    save_cfg(cfg); return ok()
+
+# ══════════════════════════════════════════════════════════════════════
 #  Dashboard (RSS news)
 # ══════════════════════════════════════════════════════════════════════
 @app.route("/api/news")
@@ -301,13 +334,16 @@ def settings():
     cfg = load_cfg()
     if request.method == "POST":
         d = request.json
-        if "storage"    in d: cfg.setdefault("storage", {}).update(d["storage"])
-        if "vercel_url" in d: cfg["vercel_url"] = d["vercel_url"].strip()
+        if "storage"             in d: cfg.setdefault("storage", {}).update(d["storage"])
+        if "vercel_url"          in d: cfg["vercel_url"] = d["vercel_url"].strip()
+        if "rss_default_interval" in d:
+            cfg.setdefault("rss_feeds", {})["default_interval"] = int(d["rss_default_interval"])
         save_cfg(cfg); return ok()
     return jsonify({
-        "storage":    cfg.get("storage", {}),
-        "vercel_url": cfg.get("vercel_url", ""),
-        "is_cloud":   IS_CLOUD,
+        "storage":              cfg.get("storage", {}),
+        "vercel_url":           cfg.get("vercel_url", ""),
+        "is_cloud":             IS_CLOUD,
+        "rss_default_interval": cfg.get("rss_feeds", {}).get("default_interval", 1),
     })
 
 @app.route("/api/network-info")

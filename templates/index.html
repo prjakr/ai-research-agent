@@ -53,12 +53,42 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
 .toast-msg.success { border-left:4px solid #22c55e; }
 .toast-msg.error   { border-left:4px solid #ef4444; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── グループビューウィンドウ ── */
+.gv-sidebar { width:190px; min-width:190px; background:#1e293b; padding:.5rem; overflow-y:auto; }
+.gv-group-btn {
+  display:flex; align-items:center; gap:.5rem; width:100%;
+  background:transparent; border:none; color:#94a3b8;
+  padding:.5rem .7rem; border-radius:8px; font-size:.83rem;
+  cursor:pointer; transition:.15s; text-align:left; margin-bottom:.15rem;
+}
+.gv-group-btn:hover { background:#334155; color:#fff; }
+.gv-group-btn.active { background:var(--accent); color:#fff; }
+.gv-group-btn .g-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.gv-group-btn .g-count { margin-left:auto; font-size:.7rem; background:rgba(255,255,255,.15);
+  padding:.1em .4em; border-radius:10px; }
+.gv-link-card {
+  background:#fff; border-radius:10px; padding:.75rem .9rem;
+  box-shadow:0 1px 3px rgba(0,0,0,.07); border:2px solid transparent;
+  transition:.15s;
+}
+.gv-link-card:hover { border-color:var(--accent); }
+.gv-link-name { font-weight:600; font-size:.88rem; margin-bottom:.2rem; }
+.gv-link-url  { font-size:.7rem; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; margin-bottom:.4rem; }
+.gv-open-btn { width:100%; border:none; border-radius:6px; padding:.35rem;
+  color:#fff; font-size:.82rem; cursor:pointer; font-weight:600; transition:.1s; }
+.gv-open-btn:hover { filter:brightness(1.1); }
+
 @media (max-width:640px) {
   #sidebar { width:56px; min-width:56px; }
   #sidebar .brand, #sidebar .nav-link span, #sidebar .run-section .btn-label { display:none; }
   #sidebar .nav-link { justify-content:center; padding:.55rem; margin:.1rem .25rem; }
   #sidebar .run-section { padding:.4rem; }
   #main { padding:.8rem; }
+  .gv-sidebar { width:56px; min-width:56px; }
+  .gv-group-btn span, .gv-group-btn .g-count { display:none; }
+  .gv-group-btn { justify-content:center; }
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
@@ -113,18 +143,22 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
         </div>
       </div>
     </div>
-    <!-- カテゴリフィルタ（登録済みフィードから自動生成） -->
     <div class="d-flex flex-wrap gap-2 mb-3" id="cat-filters"></div>
     <div id="news-list"><div class="text-muted small">読み込み中...</div></div>
   </div>
 
   <!-- ── お気に入りリンク ── -->
   <div id="tab-links" class="tab-pane-custom">
-    <div class="d-flex align-items-center mb-3">
+    <div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
       <h5 class="mb-0">🔖 お気に入りリンク</h5>
-      <button class="btn btn-primary btn-sm ms-auto" onclick="openLinkModal()">
-        <i class="bi bi-plus"></i> 追加
-      </button>
+      <div class="ms-auto d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="openGroupView()">
+          <i class="bi bi-collection"></i> グループ表示
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openLinkModal()">
+          <i class="bi bi-plus"></i> 追加
+        </button>
+      </div>
     </div>
     <div class="d-flex flex-wrap gap-2 mb-3" id="link-cat-filters">
       <button class="btn btn-sm btn-dark" onclick="filterLinks('')" data-lcat="">すべて</button>
@@ -147,7 +181,7 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
         <div class="table-responsive">
           <table class="table table-hover mb-0">
             <thead class="table-light">
-              <tr><th>フィード名</th><th>URL</th><th>カテゴリ</th><th>Discord通知</th><th>通知チャンネル</th><th>状態</th><th>操作</th></tr>
+              <tr><th>フィード名・更新頻度</th><th>URL</th><th>カテゴリ</th><th>Discord通知</th><th>通知チャンネル</th><th>状態</th><th>操作</th></tr>
             </thead>
             <tbody id="feeds-body">
               <tr><td colspan="7" class="text-muted text-center py-3">読み込み中...</td></tr>
@@ -158,9 +192,8 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
     </div>
     <div class="alert alert-info mt-3 small">
       <i class="bi bi-info-circle"></i>
-      RSS URLの例: <code>https://natalie.mu/comic/feed/</code> (コミックナタリー)、
-      <code>https://zenn.dev/feed</code> (Zenn) など。
-      フィードを追加するとダッシュボードのカテゴリも自動で追加されます。
+      「更新頻度」は各行のドロップダウンから直接変更できます。
+      RSS URLの例: <code>https://natalie.mu/comic/feed/</code>、<code>https://zenn.dev/feed</code> など。
     </div>
   </div>
 
@@ -202,8 +235,6 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
           <div class="card-body">
             <div class="fw-bold mb-3 fs-6">📱 スマホ・タブレットからアクセスする</div>
             <div class="row g-3">
-
-              <!-- 同じWiFi -->
               <div class="col-md-6">
                 <div class="p-3 rounded h-100" style="background:rgba(255,255,255,.08)">
                   <div class="fw-semibold mb-1">① 同じWiFi（PC起動中）</div>
@@ -223,8 +254,6 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
                   <div class="small text-white-50">※ PCとスマホが同じWiFiに接続されていること</div>
                 </div>
               </div>
-
-              <!-- Vercel -->
               <div class="col-md-6">
                 <div class="p-3 rounded h-100" style="background:rgba(255,255,255,.08)">
                   <div class="fw-semibold mb-1">② Vercel（PCオフOK）<span class="badge bg-success ms-1">完全無料</span></div>
@@ -249,8 +278,29 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
                   <div class="small text-white-50 mt-1">vercel.com で無料デプロイ後にURLを入力</div>
                 </div>
               </div>
-
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RSS デフォルト設定 -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">📡 RSS デフォルト設定</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label small fw-bold">新規フィードのデフォルト収集頻度</label>
+              <select class="form-select form-select-sm" id="rss-default-interval">
+                <option value="1">1時間ごと</option>
+                <option value="3">3時間ごと</option>
+                <option value="6">6時間ごと</option>
+                <option value="12">12時間ごと</option>
+                <option value="24">1日1回</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveRssSettings()">
+              <i class="bi bi-save"></i> 保存
+            </button>
           </div>
         </div>
       </div>
@@ -320,9 +370,17 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
           <label class="form-label small fw-bold">URL <span class="text-danger">*</span></label>
           <input class="form-control" id="lk-url" placeholder="https://...">
         </div>
-        <div class="mb-3">
-          <label class="form-label small fw-bold">カテゴリ（任意）</label>
-          <input class="form-control" id="lk-category" placeholder="例: カードゲーム、漫画、AI情報 など">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold">カテゴリ（任意）</label>
+            <input class="form-control" id="lk-category" placeholder="例: カードゲーム">
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold">グループ（任意）</label>
+            <select class="form-select" id="lk-group">
+              <option value="">グループなし</option>
+            </select>
+          </div>
         </div>
         <div class="mb-3">
           <label class="form-label small fw-bold">メモ（任意）</label>
@@ -332,6 +390,63 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
         <button class="btn btn-primary" onclick="saveLink()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- グループビュー ウィンドウ -->
+<div class="modal fade" id="modalGroupView" tabindex="-1">
+  <div class="modal-dialog modal-xl" style="height:88vh">
+    <div class="modal-content" style="height:100%">
+      <div class="modal-header py-2 px-3">
+        <h5 class="modal-title"><i class="bi bi-collection"></i> リンクグループ</h5>
+        <div class="ms-auto d-flex gap-2 align-items-center">
+          <button class="btn btn-outline-secondary btn-sm" onclick="openGroupEditModal()">
+            <i class="bi bi-gear"></i> <span class="d-none d-md-inline">グループ管理</span>
+          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+      </div>
+      <div class="modal-body p-0 d-flex overflow-hidden" style="height:calc(100% - 56px)">
+        <!-- Left: group list -->
+        <div class="gv-sidebar" id="gv-sidebar">
+          <!-- JS renders here -->
+        </div>
+        <!-- Right: link grid -->
+        <div style="flex:1;padding:1rem;overflow-y:auto;background:#f8fafc" id="gv-content">
+          <!-- JS renders here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- グループ管理 -->
+<div class="modal fade" id="modalGroupEdit" tabindex="-1" style="z-index:1060">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-gear"></i> グループ管理</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="group-manage-list" class="mb-3"></div>
+        <hr class="my-2">
+        <div class="fw-semibold small mb-2">新しいグループを追加</div>
+        <div class="d-flex gap-2 align-items-end">
+          <div class="flex-grow-1">
+            <input class="form-control form-control-sm" id="new-group-name" placeholder="グループ名（例: Amazonポケモン）">
+          </div>
+          <div>
+            <input type="color" class="form-control form-control-sm" id="new-group-color" value="#6366f1"
+              style="width:44px;height:31px;padding:2px;cursor:pointer" title="グループの色">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="createGroup()">追加</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">閉じる</button>
       </div>
     </div>
   </div>
@@ -435,8 +550,9 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 'use strict';
-let channels = [], allCategories = [], feedsData = [], linksData = [];
+let channels = [], allCategories = [], feedsData = [], linksData = [], linkGroups = [];
 let isCloud = false;
+let currentGroupViewId = 'ALL'; // グループビューの選択状態
 
 // ── API ──────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -502,21 +618,17 @@ async function loadDashboard() {
   loadNews('');
 }
 
-// カテゴリフィルタ = 登録済みフィードのカテゴリから動的生成
 async function buildCatFilters() {
-  if (!feedsData.length) {
-    feedsData = await api('GET', '/api/feeds');
-  }
+  if (!feedsData.length) feedsData = await api('GET', '/api/feeds');
   const usedCats = [...new Set(feedsData.map(f => f.category).filter(Boolean))];
   const ordered  = Object.keys(CAT_COLORS).filter(k => usedCats.includes(k))
                     .concat(usedCats.filter(k => !CAT_COLORS[k]));
-
   const f = document.getElementById('cat-filters');
-  f.innerHTML = `<button class="btn btn-sm btn-dark" onclick="loadNews('','すべて')" data-cat="">すべて</button>`;
+  f.innerHTML = `<button class="btn btn-sm btn-dark" onclick="loadNews('')" data-cat="">すべて</button>`;
   ordered.forEach(cat => {
     const col = CAT_COLORS[cat] || '#64748b';
     const lbl = CAT_LABELS[cat] || cat;
-    f.innerHTML += `<button class="btn btn-sm" onclick="loadNews('${cat}','${lbl}')"
+    f.innerHTML += `<button class="btn btn-sm" onclick="loadNews('${cat}')"
       data-cat="${cat}" style="background:${col};color:#fff;border:none">${lbl}</button>`;
   });
 }
@@ -524,7 +636,6 @@ async function buildCatFilters() {
 let currentNewsCat = '';
 async function loadNews(cat) {
   currentNewsCat = cat;
-  // アクティブ表示
   document.querySelectorAll('#cat-filters button').forEach(b => {
     b.style.opacity = (!cat || b.dataset.cat === cat) ? '1' : '0.45';
   });
@@ -566,8 +677,12 @@ async function deleteNews(id) {
 let currentLinkCat = '';
 
 async function loadLinks() {
-  linksData = await api('GET', '/api/links');
-  if (!Array.isArray(linksData)) linksData = [];
+  [linksData, linkGroups] = await Promise.all([
+    api('GET', '/api/links'),
+    api('GET', '/api/link-groups'),
+  ]);
+  if (!Array.isArray(linksData))  linksData  = [];
+  if (!Array.isArray(linkGroups)) linkGroups = [];
   buildLinkCatFilters();
   renderLinks(currentLinkCat);
 }
@@ -579,19 +694,37 @@ function buildLinkCatFilters() {
   cats.forEach(c => {
     f.innerHTML += `<button class="btn btn-sm btn-outline-secondary" onclick="filterLinks('${c}')" data-lcat="${c}">${c}</button>`;
   });
+  // グループボタン
+  if (linkGroups.length) {
+    f.innerHTML += '<span class="text-muted small ms-2 me-1">|</span>';
+    linkGroups.forEach(g => {
+      f.innerHTML += `<button class="btn btn-sm btn-outline-secondary" onclick="filterLinks('','${g.id}')"
+        data-lcat="" data-lgid="${g.id}" style="border-color:${g.color};color:${g.color}">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.color};margin-right:.3rem"></span>${g.name}</button>`;
+    });
+  }
 }
 
-function filterLinks(cat) {
+function filterLinks(cat, groupId) {
   currentLinkCat = cat;
   document.querySelectorAll('#link-cat-filters button').forEach(b => {
-    b.className = b.dataset.lcat === cat ? 'btn btn-sm btn-dark' : 'btn btn-sm btn-outline-secondary';
+    const isActive = (!groupId && b.dataset.lcat === cat && !b.dataset.lgid) ||
+                     (groupId && b.dataset.lgid === groupId);
+    b.className = isActive ? 'btn btn-sm btn-dark' : 'btn btn-sm btn-outline-secondary';
+    if (!isActive && b.dataset.lgid) {
+      const g = linkGroups.find(x => x.id === b.dataset.lgid);
+      if (g) { b.style.borderColor = g.color; b.style.color = g.color; }
+    }
   });
-  renderLinks(cat);
+  renderLinks(cat, groupId);
 }
 
-function renderLinks(cat) {
+function renderLinks(cat, groupId) {
   const grid = document.getElementById('links-grid');
-  const filtered = cat ? linksData.filter(l => l.category === cat) : linksData;
+  let filtered = linksData;
+  if (groupId) filtered = filtered.filter(l => l.group_id === groupId);
+  else if (cat) filtered = filtered.filter(l => l.category === cat);
+
   if (!filtered.length) {
     grid.innerHTML = '<div class="text-muted small col-12 py-3">リンクが登録されていません。「追加」ボタンで登録してください。</div>';
     return;
@@ -600,9 +733,13 @@ function renderLinks(cat) {
     const realIdx = linksData.indexOf(lk);
     const catBadge = lk.category
       ? `<span class="badge bg-secondary me-1" style="font-size:.68rem">${lk.category}</span>` : '';
+    const grp = linkGroups.find(g => g.id === lk.group_id);
+    const grpDot = grp
+      ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${grp.color};margin-right:.3rem;margin-bottom:1px"></span>`
+      : '';
     return `<div class="col-6 col-md-4 col-lg-3">
       <a href="${lk.url}" target="_blank" class="link-card">
-        <div class="link-name">${lk.name}</div>
+        <div class="link-name">${grpDot}${lk.name}</div>
         ${catBadge}
         <div class="link-url">${lk.url}</div>
         ${lk.memo ? `<div class="link-memo">${lk.memo}</div>` : ''}
@@ -621,12 +758,19 @@ function renderLinks(cat) {
   }).join('');
 }
 
-function openLinkModal(idx) {
+async function openLinkModal(idx) {
+  // グループ選択肢を更新
+  if (!linkGroups.length) linkGroups = await api('GET', '/api/link-groups') || [];
+  const grpSel = document.getElementById('lk-group');
+  grpSel.innerHTML = '<option value="">グループなし</option>' +
+    linkGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
   const lk = idx !== undefined ? linksData[idx] : null;
   document.getElementById('lk-idx').value      = idx !== undefined ? idx : -1;
   document.getElementById('lk-name').value     = lk?.name     || '';
   document.getElementById('lk-url').value      = lk?.url      || '';
   document.getElementById('lk-category').value = lk?.category || '';
+  document.getElementById('lk-group').value    = lk?.group_id || '';
   document.getElementById('lk-memo').value     = lk?.memo     || '';
   new bootstrap.Modal(document.getElementById('modalLink')).show();
 }
@@ -637,6 +781,7 @@ async function saveLink() {
     name:     document.getElementById('lk-name').value.trim(),
     url:      document.getElementById('lk-url').value.trim(),
     category: document.getElementById('lk-category').value.trim(),
+    group_id: document.getElementById('lk-group').value,
     memo:     document.getElementById('lk-memo').value.trim(),
   };
   if (!data.name || !data.url) { toast('名前とURLは必須です', 'error'); return; }
@@ -655,8 +800,173 @@ async function deleteLink(idx) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+//  LINK GROUPS
+// ══════════════════════════════════════════════════════════════════════
+async function openGroupView() {
+  if (!linksData.length && !linkGroups.length) await loadLinks();
+  currentGroupViewId = 'ALL';
+  renderGroupSidebar();
+  renderGroupContent('ALL');
+  new bootstrap.Modal(document.getElementById('modalGroupView')).show();
+}
+
+function renderGroupSidebar() {
+  const sb = document.getElementById('gv-sidebar');
+  const allCount = linksData.length;
+  const noGroupCount = linksData.filter(l => !l.group_id).length;
+
+  let html = `<button class="gv-group-btn ${currentGroupViewId==='ALL'?'active':''}"
+    onclick="selectGroupView('ALL')">
+    <span class="g-dot" style="background:#64748b"></span>
+    <span>すべて</span>
+    <span class="g-count">${allCount}</span>
+  </button>`;
+
+  linkGroups.forEach(g => {
+    const cnt = linksData.filter(l => l.group_id === g.id).length;
+    html += `<button class="gv-group-btn ${currentGroupViewId===g.id?'active':''}"
+      onclick="selectGroupView('${g.id}')">
+      <span class="g-dot" style="background:${g.color}"></span>
+      <span>${g.name}</span>
+      <span class="g-count">${cnt}</span>
+    </button>`;
+  });
+
+  if (noGroupCount > 0) {
+    html += `<hr style="border-color:#334155;margin:.4rem 0">
+    <button class="gv-group-btn ${currentGroupViewId==='NONE'?'active':''}"
+      onclick="selectGroupView('NONE')">
+      <span class="g-dot" style="background:#475569"></span>
+      <span>未分類</span>
+      <span class="g-count">${noGroupCount}</span>
+    </button>`;
+  }
+  sb.innerHTML = html;
+}
+
+function selectGroupView(gid) {
+  currentGroupViewId = gid;
+  renderGroupSidebar();
+  renderGroupContent(gid);
+}
+
+function renderGroupContent(gid) {
+  let links;
+  let title;
+  if (gid === 'ALL') {
+    links = linksData;
+    title = 'すべてのリンク';
+  } else if (gid === 'NONE') {
+    links = linksData.filter(l => !l.group_id);
+    title = '未分類';
+  } else {
+    const g = linkGroups.find(x => x.id === gid);
+    links = linksData.filter(l => l.group_id === gid);
+    title = g?.name || gid;
+  }
+
+  const content = document.getElementById('gv-content');
+  if (!links.length) {
+    content.innerHTML = `<div class="text-muted text-center py-5">
+      <i class="bi bi-inbox" style="font-size:2rem"></i><br>
+      <div class="mt-2">リンクがありません</div>
+      <div class="small">「追加」ボタンでリンクを登録してください</div>
+    </div>`;
+    return;
+  }
+
+  const grpColor = gid !== 'ALL' && gid !== 'NONE'
+    ? (linkGroups.find(g => g.id === gid)?.color || '#6366f1') : '#4f46e5';
+
+  content.innerHTML = `<div class="fw-semibold mb-3" style="color:#334155">${title} <span class="badge bg-secondary">${links.length}</span></div>
+  <div class="row g-2">
+    ${links.map(lk => {
+      const g = linkGroups.find(x => x.id === lk.group_id);
+      const btnColor = g?.color || grpColor;
+      return `<div class="col-6 col-md-4 col-lg-3">
+        <div class="gv-link-card">
+          <div class="gv-link-name">${lk.name}</div>
+          <div class="gv-link-url">${lk.url}</div>
+          ${lk.memo ? `<div style="font-size:.72rem;color:#64748b;margin-bottom:.35rem">${lk.memo}</div>` : ''}
+          <a href="${lk.url}" target="_blank" class="gv-open-btn" style="background:${btnColor};display:block;text-align:center;text-decoration:none">
+            <i class="bi bi-box-arrow-up-right"></i> 開く
+          </a>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+async function openGroupEditModal() {
+  if (!linkGroups.length) linkGroups = await api('GET', '/api/link-groups') || [];
+  renderGroupManageList();
+  // グループ管理モーダルはグループビューの上に重ねる
+  new bootstrap.Modal(document.getElementById('modalGroupEdit')).show();
+}
+
+function renderGroupManageList() {
+  const el = document.getElementById('group-manage-list');
+  if (!linkGroups.length) {
+    el.innerHTML = '<div class="text-muted small">グループがありません</div>';
+    return;
+  }
+  el.innerHTML = linkGroups.map(g => {
+    const cnt = linksData.filter(l => l.group_id === g.id).length;
+    return `<div class="d-flex align-items-center gap-2 mb-2 p-2 rounded" style="background:#f8fafc">
+      <span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${g.color};flex-shrink:0"></span>
+      <span class="flex-grow-1 fw-semibold small">${g.name}</span>
+      <span class="badge bg-secondary" style="font-size:.68rem">${cnt}件</span>
+      <input type="color" class="form-control form-control-sm"
+        value="${g.color}" style="width:32px;height:28px;padding:2px;cursor:pointer"
+        onchange="updateGroupColor('${g.id}', this.value)">
+      <button class="btn btn-xs btn-outline-danger" onclick="deleteGroup('${g.id}')">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+async function createGroup() {
+  const name  = document.getElementById('new-group-name').value.trim();
+  const color = document.getElementById('new-group-color').value;
+  if (!name) { toast('グループ名を入力してください', 'error'); return; }
+  const r = await api('POST', '/api/link-groups', { name, color });
+  if (r.ok === false) { toast('作成失敗', 'error'); return; }
+  linkGroups = await api('GET', '/api/link-groups') || [];
+  document.getElementById('new-group-name').value = '';
+  renderGroupManageList();
+  // グループビューも更新
+  renderGroupSidebar();
+  toast(`「${name}」を作成しました`);
+}
+
+async function updateGroupColor(gid, color) {
+  await api('PUT', `/api/link-groups/${gid}`, { color });
+  linkGroups = await api('GET', '/api/link-groups') || [];
+  renderGroupManageList();
+  renderGroupSidebar();
+  renderGroupContent(currentGroupViewId);
+  toast('色を更新しました');
+}
+
+async function deleteGroup(gid) {
+  const g = linkGroups.find(x => x.id === gid);
+  if (!confirm(`「${g?.name}」を削除しますか？\nこのグループに属するリンクは「未分類」になります。`)) return;
+  await api('DELETE', `/api/link-groups/${gid}`);
+  linkGroups = await api('GET', '/api/link-groups') || [];
+  linksData  = await api('GET', '/api/links')       || [];
+  if (currentGroupViewId === gid) currentGroupViewId = 'ALL';
+  renderGroupManageList();
+  renderGroupSidebar();
+  renderGroupContent(currentGroupViewId);
+  toast('削除しました');
+}
+
+// ══════════════════════════════════════════════════════════════════════
 //  RSS FEEDS
 // ══════════════════════════════════════════════════════════════════════
+const INTERVAL_OPTS = [1,3,6,12,24];
+
 async function loadFeeds() {
   await refreshChannelSelects();
   feedsData = await api('GET', '/api/feeds');
@@ -671,12 +981,21 @@ async function loadFeeds() {
     : '<option value="default">未設定</option>';
 
   tbody.innerHTML = feedsData.map((f, i) => {
-    const catLabel  = CAT_LABELS[f.category] || f.category;
-    const notifyOn  = f.discord_notify !== false;
-    const selOpts   = chOpts.replace(`value="${f.discord_channel}"`, `value="${f.discord_channel}" selected`);
+    const catLabel = CAT_LABELS[f.category] || f.category;
+    const notifyOn = f.discord_notify !== false;
+    const selOpts  = chOpts.replace(`value="${f.discord_channel}"`, `value="${f.discord_channel}" selected`);
+    const iv       = f.check_interval_hours || 1;
+    const ivOpts   = INTERVAL_OPTS.map(h =>
+      `<option value="${h}" ${iv===h?'selected':''}>${h}h</option>`).join('');
     return `<tr>
-      <td>${f.name}<div style="font-size:.7rem;color:#94a3b8">${f.check_interval_hours}h毎</div></td>
-      <td><small class="text-muted" style="display:block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.url}">${f.url}</small></td>
+      <td>
+        <div class="fw-semibold" style="font-size:.87rem">${f.name}</div>
+        <select class="form-select form-select-sm mt-1" style="font-size:.75rem;padding:.15rem .5rem;width:auto;height:auto"
+          onchange="setFeedInterval(${i}, +this.value)" title="更新頻度">
+          ${ivOpts}
+        </select>
+      </td>
+      <td><small class="text-muted" style="display:block;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.url}">${f.url}</small></td>
       <td><small>${catLabel}</small></td>
       <td class="text-center">
         <div class="form-check form-switch d-inline-flex" style="padding-left:2.5em">
@@ -701,6 +1020,13 @@ async function loadFeeds() {
       </td>
     </tr>`;
   }).join('');
+}
+
+async function setFeedInterval(idx, hours) {
+  const r = await api('PUT', `/api/feeds/${idx}`, { check_interval_hours: hours });
+  if (r.ok === false) { toast('保存失敗', 'error'); return; }
+  feedsData[idx].check_interval_hours = hours;
+  toast(`更新頻度を ${hours}時間ごとに変更しました`);
 }
 
 async function openFeedModal(idx) {
@@ -738,7 +1064,6 @@ async function saveFeed() {
   if (r.ok === false) { toast('保存失敗: ' + (r.error || ''), 'error'); return; }
   bootstrap.Modal.getInstance(document.getElementById('modalFeed')).hide();
   toast('保存しました'); loadFeeds();
-  // ダッシュボードのカテゴリも更新
   await buildCatFilters();
 }
 
@@ -752,8 +1077,7 @@ async function setFeedNotify(idx, enabled) {
   const r = await api('PUT', `/api/feeds/${idx}`, { discord_notify: enabled });
   if (r.ok === false) { toast('保存失敗', 'error'); return; }
   feedsData[idx].discord_notify = enabled;
-  // チャンネルセレクトの有効/無効を切り替え
-  const sel = document.querySelector(`tr:nth-child(${idx+1}) select`);
+  const sel = document.querySelector(`#feeds-body tr:nth-child(${idx+1}) select[onchange*="setFeedChannel"]`);
   if (sel) sel.disabled = !enabled || !channels.length;
   toast(enabled ? '通知ON' : '通知OFF');
 }
@@ -837,7 +1161,6 @@ async function loadSettings() {
     api('GET', '/api/network-info'),
   ]);
 
-  // クラウドモード時はストレージ設定を隠す
   if (isCloud) {
     const sec = document.getElementById('local-storage-section');
     if (sec) sec.style.display = 'none';
@@ -847,6 +1170,9 @@ async function loadSettings() {
 
   document.getElementById('db-path').value   = s.storage?.db_path   || '';
   document.getElementById('keep-days').value = s.storage?.keep_days || 30;
+
+  const defInterval = s.rss_default_interval || 1;
+  document.getElementById('rss-default-interval').value = String(defInterval);
 
   const mEl = document.getElementById('mobile-url');
   if (mEl && net.mobile_url) {
@@ -900,6 +1226,12 @@ async function saveSettings() {
   toast('保存しました');
 }
 
+async function saveRssSettings() {
+  const interval = parseInt(document.getElementById('rss-default-interval').value);
+  await api('POST', '/api/settings', { rss_default_interval: interval });
+  toast('RSSデフォルト設定を保存しました');
+}
+
 // ══════════════════════════════════════════════════════════════════════
 //  RUN / RESTART
 // ══════════════════════════════════════════════════════════════════════
@@ -934,11 +1266,6 @@ async function restartServer() {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
-function channelLabel(key) {
-  const ch = channels.find(c => c.key === key);
-  return ch ? ch.label : (key || '-');
-}
-
 async function refreshChannelSelects() {
   channels = await api('GET', '/api/discord');
   if (!Array.isArray(channels)) channels = [];
@@ -958,7 +1285,6 @@ async function refreshChannelSelects() {
     isCloud = !!vr.is_cloud;
     if (isCloud) {
       document.getElementById('cloud-badge').style.display = 'inline';
-      // クラウドではRSS実行・再起動ボタンを非表示
       document.getElementById('btn-rss').style.display     = 'none';
       document.getElementById('btn-restart').style.display = 'none';
     }
@@ -966,9 +1292,12 @@ async function refreshChannelSelects() {
     document.getElementById('ver-label').textContent = '(ver不明)';
   }
 
-  // フィードを先読みしてからダッシュボードを初期化
-  feedsData = await api('GET', '/api/feeds');
-  if (!Array.isArray(feedsData)) feedsData = [];
+  [feedsData, linkGroups] = await Promise.all([
+    api('GET', '/api/feeds'),
+    api('GET', '/api/link-groups'),
+  ]);
+  if (!Array.isArray(feedsData))  feedsData  = [];
+  if (!Array.isArray(linkGroups)) linkGroups = [];
   allCategories = await api('GET', '/api/categories');
   await buildCatFilters();
   await loadDashboard();
