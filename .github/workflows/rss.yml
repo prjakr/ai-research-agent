@@ -22,4 +22,4 @@ jobs:
         run: python main.py rss
         env:
           GITHUB_TOKEN: ${{ secrets.GIST_TOKEN }}
-          GITHUB_GIST_ID: ${{ secrets.GITHUB_GIST_ID }}
+          GITHUB_GIST_ID: ${{ secrets.GIST_ID }}
