@@ -14,8 +14,8 @@ from datetime import date
 
 import requests as req
 
-GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "")
-GITHUB_GIST_ID = os.environ.get("GITHUB_GIST_ID", "")
+GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "").strip()
+GITHUB_GIST_ID = os.environ.get("GITHUB_GIST_ID", "").strip()
 IS_CLOUD       = bool(GITHUB_TOKEN and GITHUB_GIST_ID)
 
 _API_BASE = "https://api.github.com"
