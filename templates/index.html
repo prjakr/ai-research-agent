@@ -147,7 +147,7 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
         <div class="table-responsive">
           <table class="table table-hover mb-0">
             <thead class="table-light">
-              <tr><th>フィード名</th><th>URL</th><th>カテゴリ</th><th>通知先</th><th>頻度</th><th>状態</th><th>操作</th></tr>
+              <tr><th>フィード名</th><th>URL</th><th>カテゴリ</th><th>Discord通知</th><th>通知チャンネル</th><th>状態</th><th>操作</th></tr>
             </thead>
             <tbody id="feeds-body">
               <tr><td colspan="7" class="text-muted text-center py-3">読み込み中...</td></tr>
@@ -666,14 +666,33 @@ async function loadFeeds() {
     tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-3">RSSフィードが登録されていません</td></tr>';
     return;
   }
+  const chOpts = channels.length
+    ? channels.map(ch => `<option value="${ch.key}">${ch.label}</option>`).join('')
+    : '<option value="default">未設定</option>';
+
   tbody.innerHTML = feedsData.map((f, i) => {
-    const catLabel = CAT_LABELS[f.category] || f.category;
+    const catLabel  = CAT_LABELS[f.category] || f.category;
+    const notifyOn  = f.discord_notify !== false;
+    const selOpts   = chOpts.replace(`value="${f.discord_channel}"`, `value="${f.discord_channel}" selected`);
     return `<tr>
-      <td>${f.name}</td>
-      <td><small class="text-muted" style="display:block;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.url}">${f.url}</small></td>
+      <td>${f.name}<div style="font-size:.7rem;color:#94a3b8">${f.check_interval_hours}h毎</div></td>
+      <td><small class="text-muted" style="display:block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.url}">${f.url}</small></td>
       <td><small>${catLabel}</small></td>
-      <td><small>${channelLabel(f.discord_channel)}</small></td>
-      <td><small>${f.check_interval_hours}h</small></td>
+      <td class="text-center">
+        <div class="form-check form-switch d-inline-flex" style="padding-left:2.5em">
+          <input class="form-check-input" type="checkbox" role="switch"
+            id="notify-${i}" ${notifyOn ? 'checked' : ''}
+            onchange="setFeedNotify(${i}, this.checked)"
+            ${channels.length ? '' : 'disabled title="Discordチャンネルを先に追加"'}>
+        </div>
+      </td>
+      <td>
+        <select class="form-select form-select-sm" style="min-width:110px;font-size:.78rem"
+          onchange="setFeedChannel(${i}, this.value)"
+          ${notifyOn && channels.length ? '' : 'disabled'}>
+          ${selOpts}
+        </select>
+      </td>
       <td><span class="badge ${f.enabled?'bg-success':'bg-secondary'}">${f.enabled?'有効':'停止'}</span></td>
       <td>
         <button class="btn btn-xs btn-outline-primary me-1" onclick="openFeedModal(${i})"><i class="bi bi-pencil"></i></button>
@@ -727,6 +746,23 @@ async function deleteFeed(idx) {
   if (!confirm('削除しますか？')) return;
   await api('DELETE', `/api/feeds/${idx}`); toast('削除しました'); loadFeeds();
   await buildCatFilters();
+}
+
+async function setFeedNotify(idx, enabled) {
+  const r = await api('PUT', `/api/feeds/${idx}`, { discord_notify: enabled });
+  if (r.ok === false) { toast('保存失敗', 'error'); return; }
+  feedsData[idx].discord_notify = enabled;
+  // チャンネルセレクトの有効/無効を切り替え
+  const sel = document.querySelector(`tr:nth-child(${idx+1}) select`);
+  if (sel) sel.disabled = !enabled || !channels.length;
+  toast(enabled ? '通知ON' : '通知OFF');
+}
+
+async function setFeedChannel(idx, channelKey) {
+  const r = await api('PUT', `/api/feeds/${idx}`, { discord_channel: channelKey });
+  if (r.ok === false) { toast('保存失敗', 'error'); return; }
+  feedsData[idx].discord_channel = channelKey;
+  toast('チャンネルを更新しました');
 }
 
 async function toggleFeed(idx) {

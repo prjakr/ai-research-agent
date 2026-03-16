@@ -1,0 +1,25 @@
+name: RSS Collection
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # 毎時0分に実行
+  workflow_dispatch:       # 手動実行ボタン
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install feedparser requests flask
+
+      - name: Run RSS collector
+        run: python main.py rss
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GITHUB_GIST_ID: ${{ secrets.GITHUB_GIST_ID }}
