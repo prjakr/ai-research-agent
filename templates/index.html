@@ -589,7 +589,7 @@ let channels = [], allCategories = [], feedsData = [], linksData = [], linkGroup
 let isCloud = false;
 let currentGroupViewId = 'ALL';
 let currentGroupFilter = ''; // '' = すべて, グループID = そのグループ
-let linkPin = '';        // 設定された暗証番号（空=無効）
+let linkPin = '1224';    // デフォルト暗証番号（設定で変更可能）
 let pinUnlocked = false; // このセッション中にロック解除済みか
 let _pendingUrl = null, _pendingName = null; // PIN確認待ちのリンク
 
@@ -652,7 +652,7 @@ async function openInViewer(url, name) {
   if (!pinUnlocked) {
     try {
       const s = await api('GET', '/api/settings');
-      linkPin = (s && s.link_pin) ? s.link_pin : '';
+      linkPin = (s && s.link_pin) ? s.link_pin : '1224';
     } catch(e) {}
   }
   if (linkPin && !pinUnlocked) {
@@ -1248,7 +1248,7 @@ async function loadSettings() {
   document.getElementById('db-path').value   = s.storage?.db_path   || '';
   document.getElementById('keep-days').value = s.storage?.keep_days || 30;
   document.getElementById('rss-default-interval').value = String(s.rss_default_interval || 1);
-  linkPin = s.link_pin || '';
+  linkPin = s.link_pin || '1224';
   const pinBadge = document.getElementById('pin-status-badge');
   pinBadge.style.display = linkPin ? 'block' : 'none';
   document.getElementById('link-pin-input').value = '';
@@ -1385,7 +1385,7 @@ async function refreshChannelSelects() {
   // PINをページ読み込み時に取得
   try {
     const s = await api('GET', '/api/settings');
-    linkPin = s.link_pin || '';
+    linkPin = s.link_pin || '1224';
   } catch(e) {}
 
   [feedsData, linkGroups] = await Promise.all([

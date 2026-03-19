@@ -23,7 +23,7 @@ BASE_DIR    = Path(__file__).parent
 CONFIG_PATH = BASE_DIR / "config.json"
 app = Flask(__name__)
 
-VERSION = "1.9.0"
+VERSION = "2.0.0"
 
 # ─── local IP ────────────────────────────────────────────────────────
 def get_local_ip():
