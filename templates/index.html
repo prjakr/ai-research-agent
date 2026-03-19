@@ -308,8 +308,8 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
         <div class="card">
           <div class="card-header">🔒 リンクロック（暗証番号）</div>
           <div class="card-body">
-            <div id="pin-status-badge" style="display:none" class="alert alert-warning py-1 px-2 small mb-2">
-              <i class="bi bi-lock-fill"></i> 現在、暗証番号が設定されています
+            <div id="pin-status-badge" class="alert alert-info py-1 px-2 small mb-2">
+              🔒 暗証番号: 読込中...
             </div>
             <div class="mb-2">
               <label class="form-label small fw-bold">新しい暗証番号（空欄で解除）</label>
@@ -589,9 +589,9 @@ let channels = [], allCategories = [], feedsData = [], linksData = [], linkGroup
 let isCloud = false;
 let currentGroupViewId = 'ALL';
 let currentGroupFilter = ''; // '' = すべて, グループID = そのグループ
-let linkPin = '1224';    // デフォルト暗証番号（設定で変更可能）
 let pinUnlocked = false; // このセッション中にロック解除済みか
-let _pendingUrl = null, _pendingName = null; // PIN確認待ちのリンク
+let _pendingUrl = null, _pendingName = null;
+function getPin() { return localStorage.getItem('link_pin') || '1224'; }
 
 // ── API ──────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -647,15 +647,8 @@ document.querySelectorAll('#sideNav .nav-link').forEach(link => {
 // ══════════════════════════════════════════════════════════════════════
 let _popupWin = null;
 
-async function openInViewer(url, name) {
-  // 毎回サーバーから最新のPINを取得（キャッシュ・タイミング問題を防ぐ）
+function openInViewer(url, name) {
   if (!pinUnlocked) {
-    try {
-      const s = await api('GET', '/api/settings');
-      linkPin = (s && s.link_pin) ? s.link_pin : '1224';
-    } catch(e) {}
-  }
-  if (linkPin && !pinUnlocked) {
     _pendingUrl  = url;
     _pendingName = name;
     document.getElementById('pin-entry').value = '';
@@ -671,7 +664,7 @@ async function openInViewer(url, name) {
 
 function confirmPin() {
   const entered = document.getElementById('pin-entry').value;
-  if (entered === linkPin) {
+  if (entered === getPin()) {
     pinUnlocked = true;
     bootstrap.Modal.getInstance(document.getElementById('modalPin')).hide();
     if (_pendingUrl) {
@@ -1248,9 +1241,9 @@ async function loadSettings() {
   document.getElementById('db-path').value   = s.storage?.db_path   || '';
   document.getElementById('keep-days').value = s.storage?.keep_days || 30;
   document.getElementById('rss-default-interval').value = String(s.rss_default_interval || 1);
-  linkPin = s.link_pin || '1224';
-  const pinBadge = document.getElementById('pin-status-badge');
-  pinBadge.style.display = linkPin ? 'block' : 'none';
+  const currentPin = getPin();
+  document.getElementById('pin-status-badge').textContent =
+    '🔒 暗証番号: ' + (localStorage.getItem('link_pin') ? currentPin : currentPin + '（デフォルト）');
   document.getElementById('link-pin-input').value = '';
 
   const mEl = document.getElementById('mobile-url');
@@ -1300,23 +1293,26 @@ async function saveSettings() {
   toast('保存しました');
 }
 
-async function saveLinkPin() {
-  const pin = document.getElementById('link-pin-input').value;
-  await api('POST', '/api/settings', { link_pin: pin });
-  linkPin = pin;
+function saveLinkPin() {
+  const pin = document.getElementById('link-pin-input').value.trim();
+  if (pin) {
+    localStorage.setItem('link_pin', pin);
+  } else {
+    localStorage.removeItem('link_pin');
+  }
   pinUnlocked = false;
-  document.getElementById('pin-status-badge').style.display = pin ? 'block' : 'none';
+  document.getElementById('pin-status-badge').textContent =
+    '🔒 暗証番号: ' + (pin || '1224（デフォルト）');
   document.getElementById('link-pin-input').value = '';
-  toast(pin ? '暗証番号を設定しました' : '暗証番号を解除しました');
+  toast(pin ? '暗証番号を「' + pin + '」に変更しました' : '暗証番号をデフォルト（1224）に戻しました');
 }
 
-async function clearLinkPin() {
-  await api('POST', '/api/settings', { link_pin: '' });
-  linkPin = '';
+function clearLinkPin() {
+  localStorage.removeItem('link_pin');
   pinUnlocked = false;
-  document.getElementById('pin-status-badge').style.display = 'none';
+  document.getElementById('pin-status-badge').textContent = '🔒 暗証番号: 1224（デフォルト）';
   document.getElementById('link-pin-input').value = '';
-  toast('暗証番号を解除しました');
+  toast('暗証番号を1224（デフォルト）に戻しました');
 }
 
 async function saveRssSettings() {
@@ -1382,12 +1378,6 @@ async function refreshChannelSelects() {
   } catch(e) {
     document.getElementById('ver-label').textContent = '(ver不明)';
   }
-  // PINをページ読み込み時に取得
-  try {
-    const s = await api('GET', '/api/settings');
-    linkPin = s.link_pin || '1224';
-  } catch(e) {}
-
   [feedsData, linkGroups] = await Promise.all([
     api('GET', '/api/feeds'),
     api('GET', '/api/link-groups'),
