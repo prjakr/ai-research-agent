@@ -338,12 +338,15 @@ def settings():
         if "vercel_url"          in d: cfg["vercel_url"] = d["vercel_url"].strip()
         if "rss_default_interval" in d:
             cfg.setdefault("rss_feeds", {})["default_interval"] = int(d["rss_default_interval"])
+        if "link_pin" in d:
+            cfg["link_pin"] = str(d["link_pin"])
         save_cfg(cfg); return ok()
     return jsonify({
         "storage":              cfg.get("storage", {}),
         "vercel_url":           cfg.get("vercel_url", ""),
         "is_cloud":             IS_CLOUD,
         "rss_default_interval": cfg.get("rss_feeds", {}).get("default_interval", 1),
+        "link_pin":             cfg.get("link_pin", ""),
     })
 
 @app.route("/api/network-info")

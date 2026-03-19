@@ -303,6 +303,31 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
         </div>
       </div>
 
+      <!-- リンクロック（暗証番号） -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">🔒 リンクロック（暗証番号）</div>
+          <div class="card-body">
+            <div id="pin-status-badge" style="display:none" class="alert alert-warning py-1 px-2 small mb-2">
+              <i class="bi bi-lock-fill"></i> 現在、暗証番号が設定されています
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-bold">新しい暗証番号（空欄で解除）</label>
+              <input class="form-control form-control-sm" id="link-pin-input"
+                type="password" placeholder="例: 1234" maxlength="20"
+                autocomplete="new-password">
+            </div>
+            <div class="form-text mb-3">設定するとリンクを開く前に暗証番号の入力が必要になります。ページを再読み込みするとロックが掛かります。</div>
+            <button class="btn btn-primary btn-sm" onclick="saveLinkPin()">
+              <i class="bi bi-save"></i> 保存
+            </button>
+            <button class="btn btn-outline-danger btn-sm ms-2" onclick="clearLinkPin()">
+              <i class="bi bi-lock-fill"></i> 解除
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- ストレージ設定（ローカルのみ） -->
       <div class="col-md-6" id="local-storage-section">
         <div class="card">
@@ -530,6 +555,32 @@ body { display:flex; min-height:100vh; background:#f1f5f9; font-size:.92rem; mar
   </div>
 </div>
 
+<!-- ── PIN 入力モーダル ── -->
+<div class="modal fade" id="modalPin" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title"><i class="bi bi-lock-fill text-warning"></i> 暗証番号を入力</h6>
+      </div>
+      <div class="modal-body pt-2">
+        <input class="form-control text-center fs-5 fw-bold letter-spacing-wide"
+          id="pin-entry" type="password" placeholder="・・・・" maxlength="20"
+          autocomplete="off" style="letter-spacing:.3em"
+          onkeydown="if(event.key==='Enter')confirmPin()">
+        <div id="pin-error" class="text-danger small mt-2 text-center" style="display:none">
+          <i class="bi bi-x-circle"></i> 暗証番号が違います
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">キャンセル</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmPin()">
+          <i class="bi bi-unlock-fill"></i> 解除して開く
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -538,6 +589,9 @@ let channels = [], allCategories = [], feedsData = [], linksData = [], linkGroup
 let isCloud = false;
 let currentGroupViewId = 'ALL';
 let currentGroupFilter = ''; // '' = すべて, グループID = そのグループ
+let linkPin = '';        // 設定された暗証番号（空=無効）
+let pinUnlocked = false; // このセッション中にロック解除済みか
+let _pendingUrl = null, _pendingName = null; // PIN確認待ちのリンク
 
 // ── API ──────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -589,11 +643,43 @@ document.querySelectorAll('#sideNav .nav-link').forEach(link => {
 });
 
 // ══════════════════════════════════════════════════════════════════════
-//  POPUP VIEWER
+//  POPUP VIEWER  ＋  PIN LOCK
 // ══════════════════════════════════════════════════════════════════════
 let _popupWin = null;
 
 function openInViewer(url, name) {
+  if (linkPin && !pinUnlocked) {
+    _pendingUrl  = url;
+    _pendingName = name;
+    document.getElementById('pin-entry').value = '';
+    document.getElementById('pin-error').style.display = 'none';
+    const m = new bootstrap.Modal(document.getElementById('modalPin'));
+    m.show();
+    document.getElementById('modalPin').addEventListener('shown.bs.modal',
+      () => document.getElementById('pin-entry').focus(), { once: true });
+    return;
+  }
+  _doOpenPopup(url, name);
+}
+
+function confirmPin() {
+  const entered = document.getElementById('pin-entry').value;
+  if (entered === linkPin) {
+    pinUnlocked = true;
+    bootstrap.Modal.getInstance(document.getElementById('modalPin')).hide();
+    if (_pendingUrl) {
+      const u = _pendingUrl, n = _pendingName;
+      _pendingUrl = null; _pendingName = null;
+      _doOpenPopup(u, n);
+    }
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+    document.getElementById('pin-entry').value = '';
+    document.getElementById('pin-entry').focus();
+  }
+}
+
+function _doOpenPopup(url) {
   const sw = window.screen.width;
   const sh = window.screen.height;
   const w = Math.min(Math.round(sw * 0.65), 1100);
@@ -1154,6 +1240,10 @@ async function loadSettings() {
   document.getElementById('db-path').value   = s.storage?.db_path   || '';
   document.getElementById('keep-days').value = s.storage?.keep_days || 30;
   document.getElementById('rss-default-interval').value = String(s.rss_default_interval || 1);
+  linkPin = s.link_pin || '';
+  const pinBadge = document.getElementById('pin-status-badge');
+  pinBadge.style.display = linkPin ? 'block' : 'none';
+  document.getElementById('link-pin-input').value = '';
 
   const mEl = document.getElementById('mobile-url');
   if (mEl && net.mobile_url) {
@@ -1200,6 +1290,25 @@ async function saveSettings() {
     },
   });
   toast('保存しました');
+}
+
+async function saveLinkPin() {
+  const pin = document.getElementById('link-pin-input').value;
+  await api('POST', '/api/settings', { link_pin: pin });
+  linkPin = pin;
+  pinUnlocked = false;
+  document.getElementById('pin-status-badge').style.display = pin ? 'block' : 'none';
+  document.getElementById('link-pin-input').value = '';
+  toast(pin ? '暗証番号を設定しました' : '暗証番号を解除しました');
+}
+
+async function clearLinkPin() {
+  await api('POST', '/api/settings', { link_pin: '' });
+  linkPin = '';
+  pinUnlocked = false;
+  document.getElementById('pin-status-badge').style.display = 'none';
+  document.getElementById('link-pin-input').value = '';
+  toast('暗証番号を解除しました');
 }
 
 async function saveRssSettings() {
