@@ -841,9 +841,10 @@ function renderLinks(gid) {
         ${lk.memo ? `<div class="link-memo">${lk.memo}</div>` : ''}
       </div>
       <div class="link-actions">
-        <a href="${lk.url}" target="_blank" class="btn btn-xs btn-outline-secondary" title="新しいタブで開く">
+        <button class="btn btn-xs btn-outline-secondary" title="新しいタブで開く"
+          onclick="openInViewer('${safeUrl}','${safeName}')">
           <i class="bi bi-box-arrow-up-right"></i>
-        </a>
+        </button>
         <button class="btn btn-xs btn-outline-primary flex-fill"
           onclick="openLinkModal(${realIdx})"><i class="bi bi-pencil"></i></button>
         <button class="btn btn-xs btn-outline-danger"
@@ -960,9 +961,9 @@ function renderGroupContent(gid) {
         <div class="gv-link-card">
           <div class="d-flex align-items-start gap-1">
             <div class="gv-link-name flex-grow-1">${lk.name}</div>
-            <a href="${lk.url}" target="_blank" style="color:#94a3b8;font-size:.78rem;flex-shrink:0" title="新しいタブで開く">
+            <button onclick="openInViewer('${safeUrl}','${safeName}')" style="background:none;border:none;color:#94a3b8;font-size:.78rem;flex-shrink:0;padding:0;cursor:pointer" title="新しいタブで開く">
               <i class="bi bi-box-arrow-up-right"></i>
-            </a>
+            </button>
           </div>
           <div class="gv-link-url">${lk.url}</div>
           ${lk.memo ? `<div style="font-size:.72rem;color:#64748b;margin-bottom:.35rem">${lk.memo}</div>` : ''}
