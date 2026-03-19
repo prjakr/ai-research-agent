@@ -1374,6 +1374,12 @@ async function refreshChannelSelects() {
   } catch(e) {
     document.getElementById('ver-label').textContent = '(ver不明)';
   }
+  // PINをページ読み込み時に取得
+  try {
+    const s = await api('GET', '/api/settings');
+    linkPin = s.link_pin || '';
+  } catch(e) {}
+
   [feedsData, linkGroups] = await Promise.all([
     api('GET', '/api/feeds'),
     api('GET', '/api/link-groups'),
